@@ -4,26 +4,20 @@
   <meta charset="utf-8">
   <title>Identificação de Pimentas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
- <link rel="manifest" href="./manifest.webmanifest">
-<meta name="theme-color" content="#0ea15c">
+
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#0ea15c">
   <link rel="icon" sizes="192x192" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <style>
     :root {
       --green:#0ea366; --green-700:#0b7d4e; --bg:#f7fbf7; --ink:#12392b; --muted:#6b7b75;
       --card:#ffffff; --shadow:0 6px 24px rgba(0,0,0,.08), 0 3px 8px rgba(0,0,0,.05);
       --radius:18px;
-
-
-
-
-
-
-
-
-      
     }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
@@ -48,6 +42,7 @@
     .pill{font-size:12px;padding:5px 10px;border-radius:999px;background:#eaf6ee;color:#0d5836;display:inline-flex;align-items:center;gap:6px}
     .right{display:flex;justify-content:flex-end}
     .chip{background:#f0f3f2;border-radius:999px;padding:6px 10px;font-size:12px}
+
     /* Chat */
     .chat-wrap{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column}
     .chat-head{display:flex;align-items:center;gap:12px;padding:12px;background:#fff;box-shadow:var(--shadow)}
@@ -58,6 +53,7 @@
     .chat-foot{position:sticky;bottom:0;background:#fff;padding:8px;display:flex;gap:8px;align-items:center;box-shadow:var(--shadow)}
     .input{flex:1;border:1px solid #e1e6e4;border-radius:999px;padding:12px 14px}
     .kbd{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:#f2f5f4;border-radius:999px;margin:3px 6px 0 0;font-size:12px;cursor:pointer}
+
     /* Splash overlay (1.8s) */
     .splash{
       position:fixed;inset:0;background:#f7fbf7 url('icons/splash.png') center/cover no-repeat;
@@ -71,17 +67,7 @@
 </head>
 <body>
 
-  
-  <!-- Splash overlay (some em ~1,8s) -->
-<div id="splash"
-     style="position:fixed;inset:0;background:#ffffff;display:flex;align-items:center;justify-content:center;z-index:99999">
-  <img src="icons/splash.png" alt="Splash" style="max-width:80%;height:auto">
-</div>
-
-  
-  
-  
-  <!-- Splash 1.8s -->
+  <!-- Splash 1.8s (apenas uma vez) -->
   <div id="splash" class="splash"></div>
 
   <div class="container">
@@ -140,11 +126,9 @@
 
 <script>
 /* ===== CONFIG ===== */
- 
-
-const API_BASE = 'https://pimentas-api.onrender.com';   // <<< AJUSTE AQUI SE PRECISAR
-const DETECT_PATH = '/predict';                           // 
-const PEPPER_INFO_URL = API_BASE + '/static/pepper_info.json'; // JSON de infos
+const API_BASE = 'https://pimentas-api.onrender.com';   // <<< aponte para sua API no Render
+const DETECT_PATH = '/predict';
+const PEPPER_INFO_URL = API_BASE + '/static/pepper_info.json';
 
 /* ===== STATE ===== */
 let fileBlob = null;
@@ -170,7 +154,6 @@ const chatSend = document.getElementById('chatSend');
 const chatTitle = document.getElementById('chatTitle');
 
 /* ===== HELPERS ===== */
-// Compressor simples para ~1024 px
 async function compressImage(file, maxSize=1024){
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, maxSize/Math.max(bitmap.width, bitmap.height));
@@ -180,19 +163,16 @@ async function compressImage(file, maxSize=1024){
   ctx.drawImage(bitmap,0,0,w,h);
   return await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.9));
 }
-// chips
 function pill(text){ const s=document.createElement('span'); s.className='pill'; s.textContent=text; return s; }
-// mensagens
 function bot(msg){ const d=document.createElement('div'); d.className='bot'; d.innerHTML = msg; chatBody.appendChild(d); chatBody.scrollTop=chatBody.scrollHeight; }
 function me(msg){ const d=document.createElement('div'); d.className='me'; d.textContent=msg; chatBody.appendChild(d); chatBody.scrollTop=chatBody.scrollHeight; }
-// splash remove após 1.8s (animado via CSS)
+// remove splash após ~1.9s (com a animação)
 setTimeout(()=>document.getElementById('splash')?.remove(), 1900);
 
 /* ===== EVENTOS UI ===== */
 btnFile.onclick = ()=> picker.click();
 btnCam.onclick = ()=>{
-  // força câmera em mobile
-  picker.setAttribute('capture','environment');
+  picker.setAttribute('capture','environment'); // força câmera em mobile
   picker.click();
 };
 picker.onchange = async (e)=>{
@@ -200,8 +180,10 @@ picker.onchange = async (e)=>{
   const blob = await compressImage(f, 1024);
   fileBlob = blob;
   imgOriginal.src = URL.createObjectURL(blob);
-  imgResult.src = ''; summary.textContent = 'Imagem pronta. Clique em Identificar.';
+  imgResult.src = '';
+  summary.textContent = 'Imagem pronta. Clique em Identificar.';
 };
+
 btnDetect.onclick = async ()=>{
   if(!fileBlob){ alert('Escolha uma imagem primeiro.'); return; }
   btnDetect.disabled = true; btnDetect.innerHTML = '<span class="spinner"></span>';
@@ -214,14 +196,13 @@ btnDetect.onclick = async ()=>{
     if(!r.ok){ throw new Error('Falha no servidor ('+r.status+')'); }
     const data = await r.json();
 
-    // Campos esperados (ajuste se seu /detect retorna nomes diferentes)
     const label = (data.label || data.top_label || '').trim();
     lastLabel = label || null;
 
+    // 🔧 Corrige URLs relativas vindas do backend
     const ann = data.annotated_url || data.image_url || data.annotated || '';
-    if(ann) imgResult.src = ann;
+    if (ann) imgResult.src = ann.startsWith('http') ? ann : (API_BASE + ann);
 
-    // tags/resumo
     tags.innerHTML = '';
     if(label) tags.appendChild(pill('🍽️ ' + label));
     if(data.score) tags.appendChild(pill('🎯 conf: ' + (data.score*100).toFixed(1) + '%'));
@@ -237,18 +218,18 @@ btnDetect.onclick = async ()=>{
     btnDetect.disabled=false; btnDetect.textContent='🔎 Identificar';
   }
 };
+
 btnInfo.onclick = async ()=>{
   if(!pepperInfo){
     try{ pepperInfo = await (await fetch(PEPPER_INFO_URL)).json(); }
     catch{ alert('Não consegui carregar as informações locais.'); return; }
   }
-  const ann = data.annotated_url || data.image_url || data.annotated || ''; if (ann) imgResult.src = ann.startsWith('http') ? ann : (API_BASE + ann);
   openChat(lastLabel);
 };
 
 /* ===== CHAT ===== */
 const MENU = `
-📌 *pimenta* — escolha uma opção:<br>
+📌 <b>pimenta</b> — escolha uma opção:<br>
 1️⃣ O que é<br>
 2️⃣ Ardência (SHU)<br>
 3️⃣ Usos/Receitas<br>
@@ -257,16 +238,15 @@ const MENU = `
 6️⃣ Origem<br>
 7️⃣ Curiosidades/Extras<br>
 8️⃣ Trocar pimenta<br><br>
-💡 Você também pode digitar o *nome/sinônimo* da pimenta (ex.: jalapeño/jalapeno, chilli, biquinho...).`;
+💡 Você também pode digitar o <b>nome/sinônimo</b> da pimenta (ex.: jalapeño/jalapeno, chilli, biquinho...).`;
 
 function openChat(label){
   chat.style.display = 'flex';
   chatBody.innerHTML = '';
   const nome = label || 'pimenta';
   chatTitle.textContent = 'Chat: ' + nome;
-  bot('Use os botões ou digite. Respondo com base no arquivo local e, se precisar, amplio com IA/Web.');
+  bot('Use os botões ou digite. Respondo com base no arquivo local.');
   quickButtons(nome);
-  // Mensagem inicial do “sobre”
   const k = normalizeKey(nome);
   const p = pepperInfo?.[k];
   if(p?.oque) bot(p.oque);
@@ -279,18 +259,16 @@ function normalizeKey(s){
   s = s.toLowerCase()
        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
        .replace(/[^a-z0-9]+/g,'');
-  // mapeia variantes comuns
   const map = {
     jalapeno:'jalapeno', jalapenopepper:'jalapeno', jalapenos:'jalapeno',
-    jalapenochar:'jalapeno',
-    habanero:'habanero', habaner:'habanero',
+    habanero:'habanero',
     chilli:'chili', chili:'chili', pimenta_chilli:'chili',
     biquinho:'biquinho', fidalga:'fidalga', cambuci:'cambuci', bode:'bode'
   };
   if(map[s]) return map[s];
   return s;
 }
-function quickButtons(nome){
+function quickButtons(){
   const div = document.createElement('div');
   ['O que é','Ardência (SHU)','Usos/receitas','Conservação','Substituições','Origem'].forEach((t,i)=>{
     const b = document.createElement('div'); b.className='kbd'; b.textContent = (i+1)+' '+t;
@@ -317,10 +295,8 @@ function handleChatInput(v){
   if(!txt) return;
   me(txt);
 
-  // trocar pimenta
-  if(txt==='8'){ bot('Certo! Digite o *nome da pimenta* (ex.: jalapeño, biquinho, chilli...).'); return; }
+  if(txt==='8'){ bot('Certo! Digite o <b>nome da pimenta</b> (ex.: jalapeño, biquinho, chilli...).'); return; }
 
-  // se for número 1–7 e tiver lastLabel
   if(/^[1-7]$/.test(txt)){
     const k = normalizeKey(lastLabel||'');
     const ans = replyFor(k, txt);
@@ -328,7 +304,6 @@ function handleChatInput(v){
     return;
   }
 
-  // se for nome da pimenta
   const k = normalizeKey(txt);
   const p = pepperInfo?.[k];
   if(p){
@@ -337,7 +312,7 @@ function handleChatInput(v){
     bot(p.oque || 'Ok! Atualizei para essa pimenta.');
     quickButtons(txt);
   }else{
-    bot('Não entendi 🥲. Responda com *1–8* ou digite o *nome/sinônimo* da pimenta.');
+    bot('Não entendi 🥲. Responda com <b>1–8</b> ou digite o <b>nome/sinônimo</b> da pimenta.');
     bot(MENU);
   }
   chatBody.scrollTop=chatBody.scrollHeight;
@@ -347,23 +322,10 @@ chatInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ chatSend.click()
 
 /* ===== SW ===== */
 if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>navigator.serviceWorker.register('./sw.js'));
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js').catch(err=>console.log('SW fail:', err));
+  });
 }
-</script>
-  <script>
-  // Esconde o splash após ~1,8s
-  setTimeout(() => {
-    const s = document.getElementById('splash');
-    if (s) s.style.display = 'none';
-  }, 1800);
-
-  // Registra o Service Worker (atenção ao caminho relativo na subpasta)
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .catch(err => console.log('SW fail:', err));
-    });
-  }
 </script>
 
 </body>
