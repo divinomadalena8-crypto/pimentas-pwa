@@ -143,7 +143,7 @@
  
 
 const API_BASE = 'https://pimentas-api.onrender.com';   // <<< AJUSTE AQUI SE PRECISAR
-const DETECT_PATH = '/detect';                           // POST multipart: retorna {label, score, annotated_url, ...}
+const DETECT_PATH = '/predict';                           // 
 const PEPPER_INFO_URL = API_BASE + '/static/pepper_info.json'; // JSON de infos
 
 /* ===== STATE ===== */
@@ -242,6 +242,7 @@ btnInfo.onclick = async ()=>{
     try{ pepperInfo = await (await fetch(PEPPER_INFO_URL)).json(); }
     catch{ alert('Não consegui carregar as informações locais.'); return; }
   }
+  const ann = data.annotated_url || data.image_url || data.annotated || ''; if (ann) imgResult.src = ann.startsWith('http') ? ann : (API_BASE + ann);
   openChat(lastLabel);
 };
 
