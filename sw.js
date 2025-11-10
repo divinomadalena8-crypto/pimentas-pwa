@@ -1,5 +1,6 @@
-const CACHE = 'pimentas-v1';
-const ASSETS = [
+// sw.js
+const CACHE = 'pimentas-v3';
+const PRECACHE = [
   './',
   './index.html',
   './manifest.webmanifest',
@@ -9,35 +10,42 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));
-  self.skipWaiting();
+  e.waitUntil(
+    caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    )
+      Promise.all(keys.map(k => (k !== CACHE ? caches.delete(k) : Promise.resolve())))
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
+// network-first para o restante; cache-first para estáticos pré-cacheados
 self.addEventListener('fetch', (e) => {
-  const { request } = e;
-  // Não cacheia POST (ex.: /detect)
-  if (request.method !== 'GET') return;
+  const url = new URL(e.request.url);
 
-  // Stale-while-revalidate para imagens e JSON
-  e.respondWith((async () => {
-    const cache = await caches.open(CACHE);
-    const cached = await cache.match(request);
-    const fetchPromise = fetch(request).then(networkRes => {
-      // Apenas GET 200
-      if (networkRes && networkRes.status === 200) {
-        cache.put(request, networkRes.clone());
-      }
-      return networkRes;
-    }).catch(() => cached); // offline → serve cache se tiver
-    return cached || fetchPromise;
-  })());
+  // só lida com mesma origem (seu GitHub Pages); deixa API externa (Render) direto na rede
+  if (url.origin !== self.location.origin) return;
+
+  // cache-first para os pré-cacheados
+  if (PRECACHE.some(p => url.pathname.endsWith(p.replace('./','/')) || url.pathname === p)) {
+    e.respondWith(
+      caches.match(e.request).then(res => res || fetch(e.request))
+    );
+    return;
+  }
+
+  // network-first para demais rotas locais
+  e.respondWith(
+    fetch(e.request)
+      .then(res => {
+        const clone = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, clone));
+        return res;
+      })
+      .catch(() => caches.match(e.request))
+  );
 });
