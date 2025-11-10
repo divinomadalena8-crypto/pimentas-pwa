@@ -34,13 +34,11 @@
     .btn-outline{background:#fff;color:var(--green);border:2px solid var(--green)}
     .muted{color:var(--muted);font-size:12px}
     .row{display:flex;gap:10px;flex-wrap:wrap}
-    .w-full{width:100%}
     .hide{display:none}
     .preview{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .preview img{width:100%;height:auto;border-radius:12px;box-shadow:var(--shadow);background:#f4f7f4}
     @media (max-width:820px){.preview{grid-template-columns:1fr}}
     .pill{font-size:12px;padding:5px 10px;border-radius:999px;background:#eaf6ee;color:#0d5836;display:inline-flex;align-items:center;gap:6px}
-    .right{display:flex;justify-content:flex-end}
     .chip{background:#f0f3f2;border-radius:999px;padding:6px 10px;font-size:12px}
 
     /* Chat */
@@ -67,7 +65,7 @@
 </head>
 <body>
 
-  <!-- Splash 1.8s (apenas uma vez) -->
+  <!-- Splash 1.8s -->
   <div id="splash" class="splash"></div>
 
   <div class="container">
@@ -126,7 +124,7 @@
 
 <script>
 /* ===== CONFIG ===== */
-const API_BASE = 'https://pimentas-api.onrender.com';   // <<< aponte para sua API no Render
+const API_BASE = 'https://pimentas-api.onrender.com';   // sua API no Render
 const DETECT_PATH = '/predict';
 const PEPPER_INFO_URL = API_BASE + '/static/pepper_info.json';
 
@@ -166,7 +164,6 @@ async function compressImage(file, maxSize=1024){
 function pill(text){ const s=document.createElement('span'); s.className='pill'; s.textContent=text; return s; }
 function bot(msg){ const d=document.createElement('div'); d.className='bot'; d.innerHTML = msg; chatBody.appendChild(d); chatBody.scrollTop=chatBody.scrollHeight; }
 function me(msg){ const d=document.createElement('div'); d.className='me'; d.textContent=msg; chatBody.appendChild(d); chatBody.scrollTop=chatBody.scrollHeight; }
-// remove splash após ~1.9s (com a animação)
 setTimeout(()=>document.getElementById('splash')?.remove(), 1900);
 
 /* ===== EVENTOS UI ===== */
@@ -196,17 +193,31 @@ btnDetect.onclick = async ()=>{
     if(!r.ok){ throw new Error('Falha no servidor ('+r.status+')'); }
     const data = await r.json();
 
-    const label = (data.label || data.top_label || '').trim();
-    lastLabel = label || null;
+    // 🔎 Mapeia seu backend (main.py): top_pred.classe/conf, num_dets, image_b64/image_url
+    const top   = data.top_pred || null;
+    const label = top && (top.classe || top.class) ? (top.classe || top.class) : (data.label || '');
+    const score = top && typeof top.conf === 'number' ? top.conf
+                 : (typeof data.score === 'number' ? data.score : null);
+    lastLabel   = label || null;
 
-    // 🔧 Corrige URLs relativas vindas do backend
-    const ann = data.annotated_url || data.image_url || data.annotated || '';
-    if (ann) imgResult.src = ann.startsWith('http') ? ann : (API_BASE + ann);
+    // 🖼️ Exibe anotada (aceita base64 ou URL relativa/absoluta)
+    const ann = data.image_b64 || data.annotated || data.annotated_url || data.image_url || '';
+    if (ann) {
+      if (typeof ann === 'string' && ann.startsWith('data:image')) {
+        imgResult.src = ann;
+      } else {
+        const url = (typeof ann === 'string') ? ann : '';
+        imgResult.src = url.startsWith('http') ? url : (API_BASE + url);
+      }
+    } else {
+      imgResult.removeAttribute('src');
+    }
 
+    // 🏷️ Tags/resumo
     tags.innerHTML = '';
     if(label) tags.appendChild(pill('🍽️ ' + label));
-    if(data.score) tags.appendChild(pill('🎯 conf: ' + (data.score*100).toFixed(1) + '%'));
-    if(data.count) tags.appendChild(pill('📦 caixas: ' + data.count));
+    if(typeof score === 'number') tags.appendChild(pill('🎯 conf: ' + (score*100).toFixed(1) + '%'));
+    if(typeof data.num_dets === 'number') tags.appendChild(pill('📦 caixas: ' + data.num_dets));
 
     summary.textContent = label
       ? `Provável pimenta: ${label}. Clique em “Mais informações” para abrir o chat.`
@@ -246,7 +257,7 @@ function openChat(label){
   const nome = label || 'pimenta';
   chatTitle.textContent = 'Chat: ' + nome;
   bot('Use os botões ou digite. Respondo com base no arquivo local.');
-  quickButtons(nome);
+  quickButtons();
   const k = normalizeKey(nome);
   const p = pepperInfo?.[k];
   if(p?.oque) bot(p.oque);
@@ -263,7 +274,8 @@ function normalizeKey(s){
     jalapeno:'jalapeno', jalapenopepper:'jalapeno', jalapenos:'jalapeno',
     habanero:'habanero',
     chilli:'chili', chili:'chili', pimenta_chilli:'chili',
-    biquinho:'biquinho', fidalga:'fidalga', cambuci:'cambuci', bode:'bode'
+    biquinho:'biquinho', fidalga:'fidalga', cambuci:'cambuci', bode:'bode',
+    'scotchbonnet':'scotchbonnet', 'scotchbonnetpepper':'scotchbonnet'
   };
   if(map[s]) return map[s];
   return s;
@@ -310,7 +322,7 @@ function handleChatInput(v){
     lastLabel = txt;
     chatTitle.textContent = 'Chat: ' + txt;
     bot(p.oque || 'Ok! Atualizei para essa pimenta.');
-    quickButtons(txt);
+    quickButtons();
   }else{
     bot('Não entendi 🥲. Responda com <b>1–8</b> ou digite o <b>nome/sinônimo</b> da pimenta.');
     bot(MENU);
