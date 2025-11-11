@@ -1,51 +1,48 @@
-// sw.js
-const CACHE = 'pimentas-v9';
-const PRECACHE = [
-  './',
-  './index.html',
-  './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/splash.png'
+const CACHE_NAME = 'pimentas-app-v1';
+// Adicione aqui os arquivos que seu app precisa para carregar
+const cacheFiles = [
+  '/',
+  '/index.html',
+  '/style.css', // Exemplo: seu arquivo CSS
+  '/main.js',   // Exemplo: seu arquivo JS
+  '/icon-192.png',
+  '/icon-512.png'
 ];
 
-self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting())
+// 1. Instala o Service Worker e salva os arquivos no cache
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('Cache aberto. Adicionando arquivos...');
+        return cache.addAll(cacheFiles);
+      })
   );
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.map(k => (k !== CACHE ? caches.delete(k) : Promise.resolve())))
-    ).then(() => self.clients.claim())
-  );
-});
-
-// network-first para o restante; cache-first para estáticos pré-cacheados
-self.addEventListener('fetch', (e) => {
-  const url = new URL(e.request.url);
-
-  // só lida com mesma origem (seu GitHub Pages); deixa API externa (Render) direto na rede
-  if (url.origin !== self.location.origin) return;
-
-  // cache-first para os pré-cacheados
-  if (PRECACHE.some(p => url.pathname.endsWith(p.replace('./','/')) || url.pathname === p)) {
-    e.respondWith(
-      caches.match(e.request).then(res => res || fetch(e.request))
-    );
-    return;
+// 2. Intercepta os pedidos (AQUI ESTÁ A MUDANÇA!)
+self.addEventListener('fetch', (event) => {
+  
+  // *** A CORREÇÃO ESTÁ AQUI ***
+  // Se for um pedido POST ou um pedido para a API, 
+  // não tente usar o cache. Apenas busque na rede.
+  if (event.request.method === 'POST' || event.request.url.includes('/predict')) {
+    // Apenas deixa a requisição passar, como se o service worker
+    // não existisse para este pedido.
+    return fetch(event.request);
   }
 
-  // network-first para demais rotas locais
-  e.respondWith(
-    fetch(e.request)
-      .then(res => {
-        const clone = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
-        return res;
+  // Para todos os outros pedidos (GET para HTML, CSS, JS), 
+  // use a estratégia "Cache-First"
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => {
+        // Se tiver no cache, retorna do cache.
+        if (response) {
+          return response;
+        }
+        // Se não, busca na rede (normal).
+        return fetch(event.request);
       })
-      .catch(() => caches.match(e.request))
   );
 });
