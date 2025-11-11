@@ -1,5 +1,5 @@
 // sw.js
-const CACHE = 'pimentas-v8';
+const CACHE = 'pimentas-v9';
 const PRECACHE = [
   './',
   './index.html',
